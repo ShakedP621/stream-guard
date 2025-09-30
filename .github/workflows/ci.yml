@@ -1,0 +1,32 @@
+﻿name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure (Ubuntu)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+      - name: Build (Ubuntu)
+        run: cmake --build build --parallel
+      - name: Test (Ubuntu)
+        run: ctest --test-dir build --output-on-failure -j 2
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure (Windows)
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Debug
+      - name: Build (Windows)
+        run: cmake --build build --config Debug --parallel
+      - name: Test (Windows)
+        run: ctest --test-dir build --config Debug --output-on-failure -j 2

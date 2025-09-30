@@ -1,0 +1,28 @@
+﻿# Ignore build artifacts, IDE files, OS cruft
+/build/
+/out/
+/dist/
+/.cmake/
+/CMakeFiles/
+/CMakeCache.txt
+/.vs/
+/.vscode/
+/.ipynb_checkpoints/
+/.user
+/.opendb
+/*.VC.db
+*.obj
+*.o
+*.exe
+*.dll
+*.pdb
+*.lib
+*.log
+*.cache
+*.DS_Store
+
+# Visual Studio project/solution files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
