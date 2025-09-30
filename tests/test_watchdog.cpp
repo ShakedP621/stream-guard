@@ -1,4 +1,4 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 #include <chrono>
 #include <memory>
 #include "streamguard/watchdog.hpp"

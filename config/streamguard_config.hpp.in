@@ -1,4 +1,4 @@
-﻿// Generated: do not edit directly. Edit config/streamguard_config.hpp.in instead.
+// Generated: do not edit directly. Edit config/streamguard_config.hpp.in instead.
 #pragma once
 
 // Version macros (from CMake project version)

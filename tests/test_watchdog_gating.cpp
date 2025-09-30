@@ -26,7 +26,7 @@ class FakeClock : public IClock {
 };
 
 TEST(WatchdogGating, NoBeatNoEmit) {
-    // Watchdog starts "dead"; we should not emit until it’s beaten.
+    // Watchdog starts "dead"; we should not emit until it's beaten.
     auto clk = std::make_shared<FakeClock>();
     auto wd = std::make_shared<Watchdog>(100ms, clk);
 
@@ -69,7 +69,7 @@ TEST(WatchdogGating, BeatOpensGateThenFlushes) {
     auto out0 = rb.try_emit();
     EXPECT_TRUE(out0.empty());
 
-    // One heartbeat at t=0 → alive → gate opens.
+    // One heartbeat at t=0 -> alive -> gate opens.
     wd->beat();
     auto out1 = rb.try_emit();
     std::vector<seq_t> expected{1, 2, 3};

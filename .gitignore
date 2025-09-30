@@ -1,5 +1,7 @@
-﻿# Ignore build artifacts, IDE files, OS cruft
+# Ignore build artifacts, IDE files, OS cruft
 /build/
+/_ci_artifacts/
+/_install/
 /out/
 /dist/
 /.cmake/

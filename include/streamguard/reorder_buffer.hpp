@@ -13,7 +13,7 @@
 
 namespace streamguard {
 
-// Nice and wide sequence numbers; duplicates are by seq only.
+// Wide sequence IDs; duplicates are by seq only (policy lands in Step 7).
 using seq_t = std::uint64_t;
 
 enum class CapacityPolicy : std::uint8_t {
@@ -21,45 +21,46 @@ enum class CapacityPolicy : std::uint8_t {
     SoftCap  // Step 9
 };
 
+// Stats are a simple “snapshot” object – we return it by value.
 struct ReorderStats {
-    // Inputs/outputs
-    std::uint64_t received = 0;
-    std::uint64_t emitted = 0;
+    // Flow
+    std::uint64_t received = 0; // push() calls we accepted/observed
+    std::uint64_t emitted = 0;  // total items emitted in order
 
-    // Drops — populated in later steps
-    std::uint64_t dropped_duplicate = 0;
-    std::uint64_t dropped_too_old = 0;
-    std::uint64_t evicted = 0;
+    // Drops (some fields are populated in later steps)
+    std::uint64_t dropped_duplicate = 0; // Step 7
+    std::uint64_t dropped_too_old = 0;   // Step 7
+    std::uint64_t evicted = 0;           // Steps 8–9
 
-    // Frontier bookkeeping (Step 6)
-    std::uint64_t missing_k_promotions = 0;
-    std::uint64_t missing_k_dropped = 0;
+    // Frontier accounting (this step)
+    std::uint64_t missing_k_promotions = 0; // how many times we advanced the frontier
+    std::uint64_t missing_k_dropped = 0;    // how many promoted seqs arrived late
 
-    // Occasional curiosity metric
+    // Curiosity metric; helps us sanity-check growth.
     std::uint64_t max_depth_observed = 0;
 };
 
 struct ReorderConfig {
-    seq_t start_seq = 1;
-    std::size_t capacity = 1024;
-    std::size_t missing_k = 3;
+    seq_t start_seq = 1;         // first seq we expect
+    std::size_t capacity = 1024; // capacity policy hooks land later
+    std::size_t missing_k = 3;   // enabled by default
     CapacityPolicy policy = CapacityPolicy::Bounded;
 };
 
-// Minimal, friendly reorder buffer.
-// Today: stashes out-of-order arrivals and emits the longest in-order run
-// starting at next_expected(). Emission is now gated by the watchdog.
+// Minimal friendly reorder buffer.
+// It buffers out-of-order arrivals, optionally gates emission behind a watchdog,
+// and now can “promote” the frontier when we have K newer items waiting.
 class ReorderBuffer {
   public:
     explicit ReorderBuffer(ReorderConfig cfg);
 
-    // Provide a watchdog. We’ll use it to decide if we’re allowed to emit.
+    // Optional watchdog. Emission remains blocked until a live beat is seen once.
     void set_watchdog(std::shared_ptr<Watchdog> wd);
 
-    // The next sequence number we’d love to emit.
+    // Where the in-order stream should resume.
     seq_t next_expected() const;
 
-    // Stats snapshot (copy = thread-safe and simple).
+    // Snapshot of counters.
     ReorderStats stats() const;
 
     // Parameters (read-only).
@@ -67,23 +68,32 @@ class ReorderBuffer {
     std::size_t missing_k() const;
     CapacityPolicy policy() const;
 
-    // Accept a new sequence number. For Step 5, we just stash seq >= next_expected().
+    // Accept a new sequence number.
+    // For now we accept seq >= next_expected(). Older arrivals are “late”; if
+    // they were previously promoted, we count them as missing_k_dropped.
     bool push(seq_t seq);
 
-    // Emit all ready-in-order items (if the gate allows it).
+    // Emit any ready runs in order, starting at next_expected().
+    // Watchdog must have opened the gate (Step 5).
     std::vector<seq_t> try_emit();
 
   private:
+    // Helper: count how many buffered items are strictly beyond the frontier.
+    std::size_t count_beyond_frontier_unsafe() const;
+
     ReorderConfig cfg_;
     mutable std::mutex mu_;
     seq_t next_expected_{1};
     ReorderStats stats_{};
-
     std::shared_ptr<Watchdog> watchdog_; // optional
-    bool watchdog_gate_open_ = false;    // sticky once a live beat is observed
+    bool watchdog_gate_open_ = false;    // sticky once opened
 
-    // Holding tank for out-of-order arrivals.
+    // Holding tank for out-of-order arrivals. Good enough for the happy path.
     std::unordered_set<seq_t> pending_;
+
+    // Remember which sequence IDs we explicitly “promoted” past so that if they
+    // wander in late, we can count them as such (not just “too old”).
+    std::unordered_set<seq_t> promoted_missing_;
 };
 
 } // namespace streamguard

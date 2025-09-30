@@ -1,4 +1,4 @@
-﻿#include "streamguard/reorder_buffer.hpp"
+#include "streamguard/reorder_buffer.hpp"
 #include "streamguard/watchdog.hpp"
 
 #include <gtest/gtest.h>
@@ -43,12 +43,12 @@ TEST(ReorderBufferSkeleton, SetWatchdogDoesNotAffectStats) {
     cfg.start_seq = 1;
     ReorderBuffer rb(cfg);
 
-    // Setting a watchdog should not change stats by itself…
+    // Setting a watchdog should not change stats by itself...
     auto st0 = rb.stats();
     EXPECT_EQ(st0.received, 0u);
     EXPECT_EQ(st0.emitted, 0u);
 
-    // …but Step 5 gates emission until the first beat().
+    // ...but Step 5 gates emission until the first beat().
     auto wd = std::make_shared<Watchdog>(std::chrono::milliseconds(100));
     rb.set_watchdog(wd);
 

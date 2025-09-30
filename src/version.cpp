@@ -1,4 +1,4 @@
-﻿#include "streamguard/version.hpp"
+#include "streamguard/version.hpp"
 #include <string>
 
 namespace streamguard {

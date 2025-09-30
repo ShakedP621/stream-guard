@@ -1,4 +1,4 @@
-// Deterministic “arrive in any order, emit in order” test for Step 4.
+// Deterministic "arrive in any order, emit in order" test for Step 4.
 // We push 1..N in a reproducible shuffled order and verify try_emit()
 // always returns a clean, strictly increasing run overall.
 
@@ -17,7 +17,9 @@ TEST(ReorderEmitNoGaps, ShuffledArrivalsEmitInOrder) {
 
     ReorderConfig cfg;
     cfg.start_seq = 1;
-    cfg.capacity = 4096; // plenty of room for this test
+    cfg.capacity = 1024;
+    cfg.missing_k = 0; // disable promotions
+
     ReorderBuffer rb(cfg);
 
     std::vector<seq_t> arrivals;
