@@ -8,7 +8,6 @@
 
 using namespace streamguard;
 
-// Super tiny flag parser — we keep it friendly and forgiving.
 static bool parse_args(int argc, char** argv, SimConfig& cfg, bool& want_json) {
     want_json = false;
     for (int i = 1; i < argc; ++i) {
@@ -54,6 +53,18 @@ static bool parse_args(int argc, char** argv, SimConfig& cfg, bool& want_json) {
         } else if (a == "--hb-timeout-ms") {
             if (!read_val(cfg.hb_timeout_ms))
                 return false;
+        } else if (a == "--threads") {
+            if (i + 1 >= argc)
+                return false;
+            std::string v(argv[++i]);
+            if (v == "single")
+                cfg.mode = ThreadMode::Single;
+            else if (v == "multi")
+                cfg.mode = ThreadMode::Multi;
+            else {
+                std::cerr << "Unknown threads mode: " << v << "\n";
+                return false;
+            }
         } else if (a == "--verbose") {
             cfg.verbose = true;
         } else if (a == "--json") {
@@ -62,6 +73,7 @@ static bool parse_args(int argc, char** argv, SimConfig& cfg, bool& want_json) {
             std::cout << "streamguard_sim options:\n"
                       << "  --count <N>\n  --loss-rate <0..1>\n  --dup-rate <0..1>\n  --ooo-rate <0..1>\n"
                       << "  --seed <int>\n  --capacity <N>\n  --missing-k <K>\n  --hb-timeout-ms <ms>\n"
+                      << "  --threads single|multi\n"
                       << "  --verbose\n  --json\n";
             return false;
         } else {
