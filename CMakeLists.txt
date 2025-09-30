@@ -1,5 +1,6 @@
 ﻿cmake_minimum_required(VERSION 3.20)
 project(StreamGuard VERSION 0.1.0 LANGUAGES CXX)
+include(CMakePackageConfigHelpers) 
 option(STREAMGUARD_BUILD_SHARED "Build streamguard_lib as a shared library" OFF)
 
 # C++ standard
@@ -32,10 +33,12 @@ FetchContent_MakeAvailable(googletest)
 if(STREAMGUARD_BUILD_SHARED)
     add_library(streamguard_lib SHARED
         src/version.cpp
+        src/watchdog.cpp
     )
 else()
     add_library(streamguard_lib STATIC
         src/version.cpp
+        src/watchdog.cpp
     )
 endif()
 
@@ -85,10 +88,22 @@ gtest_discover_tests(streamguard_tests
 include(GNUInstallDirs)
 
 # headers
+# Generate a ConfigVersion file so consumers can require a version
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/StreamGuardConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
 # install generated config header
 install(
     FILES "${STREAMGUARD_GENERATED_DIR}/streamguard/config.hpp"
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/streamguard
+)
+install(
+    FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/StreamGuardConfig.cmake
+        "${CMAKE_CURRENT_BINARY_DIR}/StreamGuardConfigVersion.cmake"   
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/StreamGuard
 )
 install(
     DIRECTORY ${CMAKE_SOURCE_DIR}/include/

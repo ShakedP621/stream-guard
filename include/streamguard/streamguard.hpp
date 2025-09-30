@@ -1,3 +1,4 @@
 #pragma once
-#include "streamguard/config.hpp" // NEW: generated header
+#include "streamguard/config.hpp"
 #include "streamguard/version.hpp"
+#include "streamguard/watchdog.hpp"

@@ -59,7 +59,8 @@ endif()
 add_library(StreamGuard::streamguard_lib STATIC IMPORTED)
 
 set_target_properties(StreamGuard::streamguard_lib PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include"
+  INTERFACE_COMPILE_DEFINITIONS "STREAMGUARD_BUILD_SHARED=\$<BOOL:OFF>"
+  INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include"
 )
 
 # Load information for each installed configuration.
