@@ -13,7 +13,7 @@
 
 namespace streamguard {
 
-// We keep sequence numbers wide; duplicates are by seq only (later step tightens behavior).
+// Nice and wide sequence numbers; duplicates are by seq only.
 using seq_t = std::uint64_t;
 
 enum class CapacityPolicy : std::uint8_t {
@@ -23,42 +23,43 @@ enum class CapacityPolicy : std::uint8_t {
 
 struct ReorderStats {
     // Inputs/outputs
-    std::uint64_t received = 0; // total pushes observed
-    std::uint64_t emitted = 0;  // total seqs emitted in order
+    std::uint64_t received = 0;
+    std::uint64_t emitted = 0;
 
-    // Drops (later steps)
-    std::uint64_t dropped_duplicate = 0; // Step 7
-    std::uint64_t dropped_too_old = 0;   // Step 7
-    std::uint64_t evicted = 0;           // Step 8/9
+    // Drops — populated in later steps
+    std::uint64_t dropped_duplicate = 0;
+    std::uint64_t dropped_too_old = 0;
+    std::uint64_t evicted = 0;
 
-    // Frontier (Step 6)
+    // Frontier bookkeeping (Step 6)
     std::uint64_t missing_k_promotions = 0;
     std::uint64_t missing_k_dropped = 0;
 
-    // Handy for later assertions/telemetry
+    // Occasional curiosity metric
     std::uint64_t max_depth_observed = 0;
 };
 
 struct ReorderConfig {
-    seq_t start_seq = 1;         // first expected sequence
-    std::size_t capacity = 1024; // hard capacity (Step 8 fleshes this out)
-    std::size_t missing_k = 3;   // frontier gap K (Step 6)
+    seq_t start_seq = 1;
+    std::size_t capacity = 1024;
+    std::size_t missing_k = 3;
     CapacityPolicy policy = CapacityPolicy::Bounded;
 };
 
-// Minimal, friendly reorder buffer. Today it can stash future packets and
-// flush the contiguous run starting at next_expected() when asked.
+// Minimal, friendly reorder buffer.
+// Today: stashes out-of-order arrivals and emits the longest in-order run
+// starting at next_expected(). Emission is now gated by the watchdog.
 class ReorderBuffer {
   public:
     explicit ReorderBuffer(ReorderConfig cfg);
 
-    // Inject a watchdog (we'll actually use it in Step 5).
+    // Provide a watchdog. We’ll use it to decide if we’re allowed to emit.
     void set_watchdog(std::shared_ptr<Watchdog> wd);
 
-    // The next sequence number we’re aiming to emit.
+    // The next sequence number we’d love to emit.
     seq_t next_expected() const;
 
-    // Snapshot of stats (by value; thread-safe and easy to log).
+    // Stats snapshot (copy = thread-safe and simple).
     ReorderStats stats() const;
 
     // Parameters (read-only).
@@ -66,12 +67,10 @@ class ReorderBuffer {
     std::size_t missing_k() const;
     CapacityPolicy policy() const;
 
-    // Accept a new sequence number. For now, we just record it.
-    // Returns true if stored/accepted; false if ignored (later steps will use this).
+    // Accept a new sequence number. For Step 5, we just stash seq >= next_expected().
     bool push(seq_t seq);
 
-    // Try to emit any ready-in-order sequences, starting at next_expected().
-    // Returns the batch we just emitted, strictly increasing.
+    // Emit all ready-in-order items (if the gate allows it).
     std::vector<seq_t> try_emit();
 
   private:
@@ -80,9 +79,10 @@ class ReorderBuffer {
     seq_t next_expected_{1};
     ReorderStats stats_{};
 
-    std::shared_ptr<Watchdog> watchdog_; // may be null until set
+    std::shared_ptr<Watchdog> watchdog_; // optional
+    bool watchdog_gate_open_ = false;    // sticky once a live beat is observed
 
-    // Holding area for out-of-order arrivals (Step 4).
+    // Holding tank for out-of-order arrivals.
     std::unordered_set<seq_t> pending_;
 };
 

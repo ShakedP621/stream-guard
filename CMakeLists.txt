@@ -80,6 +80,7 @@ add_executable(streamguard_tests
     tests/test_watchdog.cpp
     tests/test_reorder_buffer_skeleton.cpp
     tests/test_reorder_emit_nogaps.cpp
+    tests/test_watchdog_gating.cpp
 )
 target_link_libraries(streamguard_tests PRIVATE streamguard_lib GTest::gtest_main)
 target_compile_features(streamguard_tests PRIVATE cxx_std_20)
