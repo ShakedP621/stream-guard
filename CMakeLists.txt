@@ -60,6 +60,15 @@ target_include_directories(streamguard_lib
         ${STREAMGUARD_GENERATED_DIR}
         $<INSTALL_INTERFACE:include>
 )
+target_sources(streamguard_lib PRIVATE src/sim.cpp)
+target_include_directories(streamguard_lib PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+# --- CLI app ---
+add_executable(streamguard_sim apps/streamguard_sim.cpp)
+target_link_libraries(streamguard_sim PRIVATE streamguard_lib)
 
 # ---------------------------
 # Tests target (clean rewrite)
@@ -74,6 +83,7 @@ add_executable(streamguard_tests
     tests/test_frontier_missing_k.cpp
     tests/test_duplicates_and_too_old.cpp
     tests/test_capacity_bounded.cpp
+    tests/test_simulator.cpp
 )
 
 target_link_libraries(streamguard_tests PRIVATE streamguard_lib GTest::gtest_main)
