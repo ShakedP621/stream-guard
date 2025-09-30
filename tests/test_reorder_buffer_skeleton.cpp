@@ -1,6 +1,7 @@
-﻿#include <gtest/gtest.h>
-#include "streamguard/reorder_buffer.hpp"
+﻿#include "streamguard/reorder_buffer.hpp"
 #include "streamguard/watchdog.hpp"
+
+#include <gtest/gtest.h>
 
 using namespace streamguard;
 
@@ -36,19 +37,29 @@ TEST(ReorderBufferSkeleton, CustomStartSeqIsHonored) {
 }
 
 TEST(ReorderBufferSkeleton, SetWatchdogDoesNotAffectStats) {
+    using namespace streamguard;
+
     ReorderConfig cfg;
+    cfg.start_seq = 1;
     ReorderBuffer rb(cfg);
 
-    auto wd = std::make_shared<Watchdog>(std::chrono::milliseconds(100));
+    // Inject a watchdog; in Step 4 it doesn't gate anything yet.
+    auto wd = std::make_shared<Watchdog>(std::chrono::milliseconds(10));
     rb.set_watchdog(wd);
 
-    // Pushing without behavior should only affect 'received'.
+    // Pushing the next expected seq should be emitted regardless of watchdog.
+    EXPECT_EQ(rb.next_expected(), 1u);
     EXPECT_TRUE(rb.push(1));
-    auto st = rb.stats();
-    EXPECT_EQ(st.received, 1u);
-    EXPECT_EQ(st.emitted, 0u);
 
-    // try_emit() is a no-op for now
+    // Emission should occur now (Step 4 behavior).
     auto out = rb.try_emit();
-    EXPECT_TRUE(out.empty());
+    ASSERT_EQ(out.size(), 1u);
+    EXPECT_EQ(out[0], 1u);
+
+    // Stats reflect exactly one received and one emitted, and no drops.
+    const auto st = rb.stats();
+    EXPECT_EQ(st.received, 1u);
+    EXPECT_EQ(st.emitted, 1u);
+    EXPECT_EQ(st.dropped_duplicate, 0u);
+    EXPECT_EQ(st.dropped_too_old, 0u);
 }

@@ -1,82 +1,80 @@
 ﻿#pragma once
-#include <cstdint>
+#include "streamguard/watchdog.hpp"
+
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
-#include <optional>
-#include <mutex>
-
-#include "streamguard/watchdog.hpp"
 
 namespace streamguard {
 
-// Sequence number type (duplicates by seq only per finalized decision).
+// We keep sequence numbers wide; duplicates are by seq only (later step tightens behavior).
 using seq_t = std::uint64_t;
 
-// Forward-declare policy enums for future steps (Capacity A/B).
 enum class CapacityPolicy : std::uint8_t {
     Bounded, // Step 8
     SoftCap  // Step 9
 };
 
-// Statistics snapshot for the reorder buffer.
-// NOTE: Initial skeleton — fields will be populated/updated in later steps.
 struct ReorderStats {
     // Inputs/outputs
-    std::uint64_t received = 0;           // total pushes observed
-    std::uint64_t emitted = 0;            // total seqs emitted in order
+    std::uint64_t received = 0; // total pushes observed
+    std::uint64_t emitted = 0;  // total seqs emitted in order
 
-    // Drops
-    std::uint64_t dropped_duplicate = 0;  // same seq seen again
-    std::uint64_t dropped_too_old = 0;    // seq < next_expected
-    std::uint64_t evicted = 0;            // capacity pressure decisions
+    // Drops (later steps)
+    std::uint64_t dropped_duplicate = 0; // Step 7
+    std::uint64_t dropped_too_old = 0;   // Step 7
+    std::uint64_t evicted = 0;           // Step 8/9
 
-    // Gap/frontier accounting (for missing_k)
-    std::uint64_t missing_k_promotions = 0; // frontier-based promotions
-    std::uint64_t missing_k_dropped = 0;    // late arrivals after promotion
+    // Frontier (Step 6)
+    std::uint64_t missing_k_promotions = 0;
+    std::uint64_t missing_k_dropped = 0;
 
-    // Useful for assertions/logging later
+    // Handy for later assertions/telemetry
     std::uint64_t max_depth_observed = 0;
 };
 
-// User-facing config at construction time.
 struct ReorderConfig {
-    seq_t start_seq = 1;             // first expected sequence
-    std::size_t capacity = 1024;     // hard capacity (Step 8 fleshes this out)
-    std::size_t missing_k = 3;       // frontier gap K (Step 6)
-    CapacityPolicy policy = CapacityPolicy::Bounded; // default for now
+    seq_t start_seq = 1;         // first expected sequence
+    std::size_t capacity = 1024; // hard capacity (Step 8 fleshes this out)
+    std::size_t missing_k = 3;   // frontier gap K (Step 6)
+    CapacityPolicy policy = CapacityPolicy::Bounded;
 };
 
-// Skeleton ReorderBuffer: maintains API but no reordering logic yet.
+// Minimal, friendly reorder buffer. Today it can stash future packets and
+// flush the contiguous run starting at next_expected() when asked.
 class ReorderBuffer {
-public:
+  public:
     explicit ReorderBuffer(ReorderConfig cfg);
 
-    // Set a watchdog used to gate emission (Step 5 integrates logic).
+    // Inject a watchdog (we'll actually use it in Step 5).
     void set_watchdog(std::shared_ptr<Watchdog> wd);
 
-    // The next sequence number we aim to emit.
+    // The next sequence number we’re aiming to emit.
     seq_t next_expected() const;
 
-    // Return a snapshot of current stats.
+    // Snapshot of stats (by value; thread-safe and easy to log).
     ReorderStats stats() const;
 
-    // Capacity and parameters (read-only accessors).
+    // Parameters (read-only).
     std::size_t capacity() const;
     std::size_t missing_k() const;
     CapacityPolicy policy() const;
 
-    // Placeholders for upcoming behavior:
-    // push(): accept a new sequence (behavior added in Step 4+).
+    // Accept a new sequence number. For now, we just record it.
+    // Returns true if stored/accepted; false if ignored (later steps will use this).
     bool push(seq_t seq);
 
-    // try_emit(): attempt to emit any ready-in-order sequences.
-    // For now, returns an empty vector.
+    // Try to emit any ready-in-order sequences, starting at next_expected().
+    // Returns the batch we just emitted, strictly increasing.
     std::vector<seq_t> try_emit();
 
-private:
+  private:
     ReorderConfig cfg_;
     mutable std::mutex mu_;
     seq_t next_expected_{1};
@@ -84,7 +82,8 @@ private:
 
     std::shared_ptr<Watchdog> watchdog_; // may be null until set
 
-    // Internal storage will be added in Step 4+ (e.g., containers for holding OOO seqs).
+    // Holding area for out-of-order arrivals (Step 4).
+    std::unordered_set<seq_t> pending_;
 };
 
 } // namespace streamguard
