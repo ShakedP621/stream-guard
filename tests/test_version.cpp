@@ -1,4 +1,5 @@
-﻿#include "streamguard/version.hpp"
+﻿#include "streamguard/config.hpp"
+#include "streamguard/version.hpp"
 
 #include <gtest/gtest.h>
 #include <regex>
@@ -18,10 +19,19 @@ TEST(VersionSuite, ComponentsConsistent) {
         std::to_string(kVersionMajor) + "." + std::to_string(kVersionMinor) + "." + std::to_string(kVersionPatch);
     EXPECT_EQ(v, expected);
 }
+TEST(VersionSuite, MacrosMatchVersionFunction) {
+    const std::string from_fn = streamguard::version();
+    const std::string from_macros = STREAMGUARD_VERSION_STRING;
+    EXPECT_EQ(from_fn, from_macros);
 
-TEST(VersionSuite, UmbrellaHeaderProvidesAPI) {
-// Intentionally include the umbrella header
-#include "streamguard/streamguard.hpp"
-    // Ensure we can call version() without needing version.hpp directly
-    EXPECT_FALSE(streamguard::version().empty());
+    // Also check components match kVersion* constants
+    const std::string expected = std::to_string(streamguard::kVersionMajor) + "." +
+                                 std::to_string(streamguard::kVersionMinor) + "." +
+                                 std::to_string(streamguard::kVersionPatch);
+    EXPECT_EQ(from_fn, expected);
+
+    // Basic sanity of component macros
+    EXPECT_EQ(STREAMGUARD_VERSION_MAJOR, streamguard::kVersionMajor);
+    EXPECT_EQ(STREAMGUARD_VERSION_MINOR, streamguard::kVersionMinor);
+    EXPECT_EQ(STREAMGUARD_VERSION_PATCH, streamguard::kVersionPatch);
 }

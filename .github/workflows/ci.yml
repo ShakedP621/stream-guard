@@ -2,31 +2,63 @@
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
-    branches: ["main"]
 
 jobs:
-  ubuntu:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Configure (Ubuntu)
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-      - name: Build (Ubuntu)
-        run: cmake --build build --parallel
-      - name: Test (Ubuntu)
-        run: ctest --test-dir build --output-on-failure -j 2
+  build-test:
+    name: ${{ matrix.os }} / ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build_type: [Debug]
 
-  windows:
-    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Configure (Windows)
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Debug
-      - name: Build (Windows)
-        run: cmake --build build --config Debug --parallel
-      - name: Test (Windows)
-        run: ctest --test-dir build --config Debug --output-on-failure -j 2
+
+      - name: Configure
+        shell: bash
+        run: |
+          EXTRA_GEN_ARGS=""
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            EXTRA_GEN_ARGS=' -G "Visual Studio 17 2022" -A x64'
+          fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} $EXTRA_GEN_ARGS
+
+      - name: Build
+        shell: bash
+        run: |
+          cmake --build build --config ${{ matrix.build_type }} --parallel
+
+      - name: Test
+        shell: bash
+        run: |
+          ctest --test-dir build -C ${{ matrix.build_type }} --output-on-failure -j 2
+
+      - name: Install
+        shell: bash
+        run: |
+          cmake --install build --config ${{ matrix.build_type }} --prefix "$GITHUB_WORKSPACE/_install"
+
+      - name: Collect Artifacts
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p _ci_artifacts
+          if [ -f build/Testing/Temporary/LastTest.log ]; then
+            cp build/Testing/Temporary/LastTest.log _ci_artifacts/
+          fi
+          # Zip the install tree
+          if [ -d _install ]; then
+            tar -czf _ci_artifacts/install_tree.tgz _install
+          fi
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamguard_${{ matrix.os }}_${{ matrix.build_type }}
+          path: _ci_artifacts

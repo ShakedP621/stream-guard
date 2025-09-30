@@ -1,5 +1,6 @@
 ﻿cmake_minimum_required(VERSION 3.20)
 project(StreamGuard VERSION 0.1.0 LANGUAGES CXX)
+option(STREAMGUARD_BUILD_SHARED "Build streamguard_lib as a shared library" OFF)
 
 # C++ standard
 set(CMAKE_CXX_STANDARD 20)
@@ -27,8 +28,38 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 # Library target
-add_library(streamguard_lib
-    src/version.cpp
+# Select library type explicitly (avoid literal "OFF" becoming a source file)
+if(STREAMGUARD_BUILD_SHARED)
+    add_library(streamguard_lib SHARED
+        src/version.cpp
+    )
+else()
+    add_library(streamguard_lib STATIC
+        src/version.cpp
+    )
+endif()
+
+# --- generated config header ---
+set(STREAMGUARD_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+file(MAKE_DIRECTORY "${STREAMGUARD_GENERATED_DIR}/streamguard")
+
+configure_file(
+    ${CMAKE_SOURCE_DIR}/config/streamguard_config.hpp.in
+    ${STREAMGUARD_GENERATED_DIR}/streamguard/config.hpp
+    @ONLY
+)
+
+# Public include paths: source include/ + generated
+target_include_directories(streamguard_lib
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${STREAMGUARD_GENERATED_DIR}>
+        $<INSTALL_INTERFACE:include>
+)
+# Export macro helper defs
+target_compile_definitions(streamguard_lib
+    PRIVATE STREAMGUARD_BUILDING_LIB=1
+    PUBLIC  STREAMGUARD_BUILD_SHARED=$<BOOL:${STREAMGUARD_BUILD_SHARED}>
 )
 target_include_directories(streamguard_lib
     PUBLIC
@@ -54,6 +85,11 @@ gtest_discover_tests(streamguard_tests
 include(GNUInstallDirs)
 
 # headers
+# install generated config header
+install(
+    FILES "${STREAMGUARD_GENERATED_DIR}/streamguard/config.hpp"
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/streamguard
+)
 install(
     DIRECTORY ${CMAKE_SOURCE_DIR}/include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
