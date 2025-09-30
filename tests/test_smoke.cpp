@@ -1,5 +1,5 @@
 ﻿#include <gtest/gtest.h>
 
-TEST(Smoke, AlwaysGreen) {
+TEST(SmokeSuite, AlwaysGreen) {
     EXPECT_EQ(1, 1);
 }

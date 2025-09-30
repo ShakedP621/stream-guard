@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/dev/stream-guard/examples/min_consume/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

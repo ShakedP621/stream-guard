@@ -1,0 +1,10 @@
+^C:\DEV\STREAM-GUARD\EXAMPLES\MIN_CONSUME\BUILD\CMAKEFILES\C53100E64B125EB6F370E1C2C3B9D9D8\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/dev/stream-guard/examples/min_consume -BC:/dev/stream-guard/examples/min_consume/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/dev/stream-guard/examples/min_consume/build/min_consume.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

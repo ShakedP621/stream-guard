@@ -1,0 +1,3 @@
+C:/dev/stream-guard/examples/min_consume/build/CMakeFiles/min_consume.dir
+C:/dev/stream-guard/examples/min_consume/build/CMakeFiles/ALL_BUILD.dir
+C:/dev/stream-guard/examples/min_consume/build/CMakeFiles/ZERO_CHECK.dir
