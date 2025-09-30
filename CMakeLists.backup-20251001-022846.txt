@@ -73,20 +73,10 @@ target_link_libraries(streamguard_sim PRIVATE streamguard_lib)
 # ---------------------------
 # Tests target (clean rewrite)
 # ---------------------------
-    add_executable(streamguard_tests
-    tests/test_smoke.cpp
-    tests/test_version.cpp
-    tests/test_watchdog.cpp
-    tests/test_reorder_buffer_skeleton.cpp
-    tests/test_reorder_emit_nogaps.cpp
-    tests/test_watchdog_gating.cpp
-    tests/test_frontier_missing_k.cpp
-    tests/test_duplicates_and_too_old.cpp
-    tests/test_capacity_bounded.cpp
-    tests/test_simulator.cpp
-    tests/test_threads.cpp
-    tests/test_simulator_json.cpp
-)
+
+    param($m)
+    $block = $m.Groups[1].Value.TrimEnd() + "`r`n    tests/test_simulator_json.cpp"
+    "add_executable($block`r`n)"
   
 
 target_link_libraries(streamguard_tests PRIVATE streamguard_lib GTest::gtest_main)

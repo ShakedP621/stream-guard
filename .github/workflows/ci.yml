@@ -2,63 +2,53 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main, master]
   pull_request:
+    branches: [main, master]
+
+env:
+  BUILD_TYPE: Debug
 
 jobs:
   build-test:
-    name: ${{ matrix.os }} / ${{ matrix.build_type }}
+    name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build_type: [Debug]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure
-        shell: bash
+      # ---------- Configure ----------
+      - name: Configure (CMake)
         run: |
-          EXTRA_GEN_ARGS=""
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            EXTRA_GEN_ARGS=' -G "Visual Studio 17 2022" -A x64'
-          fi
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} $EXTRA_GEN_ARGS
+          cmake -S . -B build ${{ matrix.os == 'windows-latest' && '-G "Visual Studio 17 2022" -A x64' || '' }} -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
-      - name: Build
-        shell: bash
+      # ---------- Build ----------
+      - name: Build (ALL)
         run: |
-          cmake --build build --config ${{ matrix.build_type }} --parallel
-
-      - name: Test
-        shell: bash
+          cmake --build build ${{ matrix.os == 'windows-latest' && '--config ' + env.BUILD_TYPE || '' }} --parallel
+      - name: Build (explicit targets)
+        # Ensure both the test binary and the CLI are produced before we run them.
         run: |
-          ctest --test-dir build -C ${{ matrix.build_type }} --output-on-failure -j 2
+          cmake --build build ${{ matrix.os == 'windows-latest' && '--config ' + env.BUILD_TYPE || '' }} --parallel --target streamguard_tests streamguard_sim
 
-      - name: Install
-        shell: bash
+      # ---------- Unit Tests ----------
+      - name: Run ctest
         run: |
-          cmake --install build --config ${{ matrix.build_type }} --prefix "$GITHUB_WORKSPACE/_install"
+          ctest --test-dir build -C ${{ env.BUILD_TYPE }} --output-on-failure -j 4
 
-      - name: Collect Artifacts
-        if: always()
-        shell: bash
+      # ---------- CLI Smoke ----------
+      - name: Simulator smoke (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
-          mkdir -p _ci_artifacts
-          if [ -f build/Testing/Temporary/LastTest.log ]; then
-            cp build/Testing/Temporary/LastTest.log _ci_artifacts/
-          fi
-          # Zip the install tree
-          if [ -d _install ]; then
-            tar -czf _ci_artifacts/install_tree.tgz _install
-          fi
+          ./build/streamguard_sim --count 8 --seed 42 --json | head -n 1
 
-      - name: Upload Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: streamguard_${{ matrix.os }}_${{ matrix.build_type }}
-          path: _ci_artifacts
+      - name: Simulator smoke (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\build\${{ env.BUILD_TYPE }}\streamguard_sim.exe --count 8 --seed 42 --json | Select-Object -First 1
