@@ -31,21 +31,29 @@ bool ReorderBuffer::push(seq_t seq) {
     std::scoped_lock lk(mu_);
     ++stats_.received;
 
+    // 1) Too-old? If so, figure out *which* bucket to count it in.
     if (seq < next_expected_) {
-        // This is “late”. If we had explicitly promoted this seq earlier,
-        // count it as a missing_k late drop. Otherwise we’ll track “too old”
-        // in Step 7 when that policy lands.
+        // If we previously “gave up” on this exact seq via missing_k, it’s a late arrival.
         if (promoted_missing_.erase(seq) > 0) {
-            ++stats_.missing_k_dropped;
+            ++stats_.missing_k_dropped;   // late because we promoted earlier
+        } else {
+            ++stats_.dropped_too_old;     // general too-old case
         }
         return false;
     }
 
-    const auto [_, inserted] = pending_.insert(seq);
+    // 2) Duplicates by seq: if it’s already in our holding tank, drop it.
+    auto [it, inserted] = pending_.insert(seq);
+    if (!inserted) {
+        ++stats_.dropped_duplicate;
+        return false;
+    }
+
+    // Track how deep the buffer has ever been — just a helpful telemetry nugget.
     if (pending_.size() > stats_.max_depth_observed) {
         stats_.max_depth_observed = static_cast<std::uint64_t>(pending_.size());
     }
-    return inserted;
+    return true;
 }
 
 std::size_t ReorderBuffer::count_beyond_frontier_unsafe() const {
@@ -79,8 +87,8 @@ std::vector<seq_t> ReorderBuffer::try_emit() {
             continue;
         }
 
-        // 2) Otherwise, consider promoting the frontier if we’re clearly behind.
-        // “Clearly behind” here means: at least K newer items are already here.
+        // 2) Otherwise, consider promoting the frontier when clearly behind:
+        // at least K newer items are already waiting.
         if (cfg_.missing_k > 0 && count_beyond_frontier_unsafe() >= cfg_.missing_k) {
             promoted_missing_.insert(next_expected_);
             ++stats_.missing_k_promotions;

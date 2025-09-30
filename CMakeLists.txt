@@ -72,6 +72,7 @@ add_executable(streamguard_tests
     tests/test_reorder_emit_nogaps.cpp
     tests/test_watchdog_gating.cpp
     tests/test_frontier_missing_k.cpp
+    tests/test_duplicates_and_too_old.cpp
 )
 
 target_link_libraries(streamguard_tests PRIVATE streamguard_lib GTest::gtest_main)
