@@ -34,14 +34,12 @@ if(STREAMGUARD_BUILD_SHARED)
     add_library(streamguard_lib SHARED
         src/version.cpp
         src/watchdog.cpp
-    src/reorder_buffer.cpp
-)
+    )
 else()
     add_library(streamguard_lib STATIC
         src/version.cpp
         src/watchdog.cpp
-    src/reorder_buffer.cpp
-)
+    )
 endif()
 
 # --- generated config header ---
@@ -78,7 +76,6 @@ add_executable(streamguard_tests
     tests/test_smoke.cpp
     tests/test_version.cpp
     tests/test_watchdog.cpp
-    tests/test_reorder_buffer_skeleton.cpp   # <-- added
 )
 target_link_libraries(streamguard_tests PRIVATE streamguard_lib GTest::gtest_main)
 target_compile_features(streamguard_tests PRIVATE cxx_std_20)
@@ -137,4 +134,3 @@ install(
     NAMESPACE StreamGuard::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/StreamGuard
 )
-
