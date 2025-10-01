@@ -78,8 +78,10 @@ if(BUILD_TESTING)
         tests/test_threads.cpp
         tests/test_simulator_json.cpp
         tests/test_sim_cli.cpp
+        tests/test_docs_presence.cpp
     )
     target_link_libraries(streamguard_tests PRIVATE streamguard_lib GTest::gtest_main)
+    target_compile_definitions(streamguard_tests PRIVATE STREAMGUARD_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
     target_compile_features(streamguard_tests PRIVATE cxx_std_20)
 
     include(GoogleTest)
@@ -132,3 +134,4 @@ install(
         "${CMAKE_CURRENT_BINARY_DIR}/StreamGuardConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/StreamGuard
 )
+target_compile_definitions(streamguard_tests PRIVATE STREAMGUARD_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
