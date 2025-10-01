@@ -35,7 +35,7 @@ The CLI exercises the reorder buffer with a deterministic RNG. A couple of quick
 
 > These diagrams render on GitHub via its built-in Mermaid support -- no extra tools needed.
 
-### Architecture (what's in the box)
+### Architecture 
 ```mermaid
 flowchart LR
   subgraph App["apps/streamguard_sim (CLI)"]
@@ -116,39 +116,6 @@ flowchart LR
   D --> E2[CLI: multi --json]
   E1 --> F[done]
   E2 --> F
-
-
-### Simulator: single vs multi path
-```mermaid
-sequenceDiagram
-  participant Gen as Generator (seed=42)
-  participant Q as SPSC Queue (multi only)
-  participant RB as ReorderBuffer
-  participant WD as Watchdog
-
-  Note over WD: beat() at t=0 -> sticky gate open
-  Gen->>Gen: Make arrivals (loss/dup/OOO)
-  alt single-thread
-    Gen->>RB: push(seq)
-    RB-->>RB: try_emit()
-  else multi-thread
-    Gen->>Q: enqueue(seq)
-    Q->>RB: dequeue(seq) FIFO
-    RB-->>RB: try_emit()
-  end
-  RB->>RB: update stats; emit batches
-
-
-> See also: [docs/architecture.md](docs/architecture.md) for the same diagrams with a tiny bit more detail.
-```powershell
-# Human-readable summary
-./build/Debug/streamguard_sim.exe --count 50 --seed 42 --verbose
-
-# JSON output (single-threaded)
-./build/Debug/streamguard_sim.exe --count 50 --seed 42 --json
-
-# Deterministic multi-threaded mode
-./build/Debug/streamguard_sim.exe --count 50 --seed 42 --threads multi --json
 ```
 
 ### Flags

@@ -31,16 +31,17 @@ stateDiagram-v2
 ## Emit & promotion flow
 ```mermaid
 flowchart TD
-  Start([try_emit()])
-  Gate{Watchdog set\nand gate closed?}
-  Gate -->|yes & !alive()| Stop[return {}]
-  Gate -->|yes & alive()| Open[open gate (sticky)]
+  Start([try_emit])
+  Gate{Watchdog set<br/>and gate closed?}
+  Gate -->|yes and not alive()| Stop[return empty]
+  Gate -->|yes and alive()| Open[open gate (sticky)]
   Gate -->|no| Scan
+
   Open --> Scan
-  Scan{pending has\nnext_expected?}
-  Scan -->|yes| Emit["emit next_expected;\n++next_expected"] --> Scan
-  Scan -->|no| Promote{>= missing_k\nnewer buffered?}
-  Promote -->|yes| Bump["record promoted;\n++missing_k_promotions;\n++next_expected"] --> Scan
+  Scan{pending has<br/>next_expected?}
+  Scan -->|yes| Emit[emit next_expected;<br/>advance next_expected] --> Scan
+  Scan -->|no| Promote{at least missing_k<br/>newer buffered?}
+  Promote -->|yes| Bump[record promoted;<br/>advance counters] --> Scan
   Promote -->|no| Stop[return batch]
 ```
 
@@ -52,21 +53,22 @@ flowchart TD
   Promoted{was promoted?}
   Dup{already in pending?}
   Overfull{pending.size > capacity?}
-  Evict{who is farthest\nin pending ??? {seq}?}
+  Evict{farthest in pending U {seq}?}
   Frontier{seq == next_expected?}
+
   Push --> TooOld
   TooOld -->|yes| Promoted
-  Promoted -->|yes| MKDrop["++missing_k_dropped; drop"] --> End
-  Promoted -->|no| TooOldDrop["++dropped_too_old; drop"] --> End
+  Promoted -->|yes| MKDrop[inc missing_k_dropped; drop] --> End
+  Promoted -->|no| TooOldDrop[inc dropped_too_old; drop] --> End
   TooOld -->|no| Dup
-  Dup -->|yes| DupDrop["++dropped_duplicate; drop"] --> End
+  Dup -->|yes| DupDrop[inc dropped_duplicate; drop] --> End
   Dup -->|no| Overfull
   Overfull -->|no| End
   Overfull -->|yes| Frontier
-  Frontier -->|yes| End["keep seq; try_emit will consume"]
+  Frontier -->|yes| End[keep seq; try_emit will consume]
   Frontier -->|no| Evict
-  Evict -->|seq is farthest| EvictNew["++evicted; drop new"] --> End
-  Evict -->|pending has farthest| EvictOld["++evicted; erase farthest"] --> End
+  Evict -->|seq is farthest| EvictNew[inc evicted; drop new] --> End
+  Evict -->|pending has farthest| EvictOld[inc evicted; drop farthest pending] --> End
 ```
 
 ## CI & simulator path
@@ -77,6 +79,8 @@ flowchart LR
   C --> D[ctest]
   D --> E1[CLI: single --json]
   D --> E2[CLI: multi --json]
+  E1 --> F[done]
+  E2 --> F
 ```
 
 ## Simulator single vs multi
@@ -86,11 +90,16 @@ sequenceDiagram
   participant Q as SPSC Queue (multi only)
   participant RB as ReorderBuffer
   participant WD as Watchdog
+
   Note over WD: beat() at t=0 -> sticky gate open
   Gen->>Gen: Make arrivals (loss/dup/OOO)
   alt single-thread
-    Gen->>RB: push(seq); RB-->>RB: try_emit()
+    Gen->>RB: push(seq)
+    RB-->>RB: try_emit()
   else multi-thread
-    Gen->>Q: enqueue(seq); Q->>RB: dequeue(seq) FIFO; RB-->>RB: try_emit()
+    Gen->>Q: enqueue(seq)
+    Q->>RB: dequeue(seq) FIFO
+    RB-->>RB: try_emit()
   end
+  RB->>RB: update stats; emit batches
 ```
