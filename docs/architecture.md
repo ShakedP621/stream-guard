@@ -31,67 +31,69 @@ stateDiagram-v2
 ## Emit & promotion flow
 ```mermaid
 flowchart TD
-  Start([try_emit]);
-  Gate{watchdog set?};
-  Gate -->|no| Scan;
-  Gate -->|yes| AliveQ{alive?};
-  AliveQ -->|no| Stop[return empty];
-  AliveQ -->|yes| Open[open gate (sticky)];
-  Open --> Scan;
-  Scan{pending has<br/>next_expected?};
-  Scan -->|yes| Emit[emit next_expected;<br/>advance next_expected];
-  Emit --> Scan;
-  Scan -->|no| Promote{>= missing_k<br/>newer buffered?};
-  Promote -->|no| Stop2[return batch];
-  Promote -->|yes| Bump[record promotion;<br/>advance counters];
-  Bump --> Scan;
+
+  Start([try_emit])
+  GateWD{watchdog set?}
+  AliveQ{alive?}
+  Scan{has next_expected}
+  Emit[emit and advance]
+  PromoteQ{promote possible?}
+  Bump[promote; advance]
+  StopEmpty[return empty]
+  StopBatch[return batch]
+
+  Start --> GateWD
+  GateWD --> Scan
+  GateWD --> AliveQ
+  AliveQ --> StopEmpty
+  AliveQ --> Scan
+  Scan --> Emit
+  Emit --> Scan
+  Scan --> PromoteQ
+  PromoteQ --> StopBatch
+  PromoteQ --> Bump
+  Bump --> Scan
 
 
 
 ## Capacity (bounded)
 ```mermaid
-flowchart TD
-  Push[push(seq)];
-  TooOld{seq < next_expected?};
-  Promoted{was promoted?};
-  Dup{already in pending?};
-  Overfull{pending.size > capacity?};
-  Evict{farthest element?};
-  Frontier{seq == next_expected?};
+fflowchart TD
 
-  Push --> TooOld;
-  TooOld -->|yes| Promoted;
-  Promoted -->|yes| MKDrop[inc missing_k_dropped; drop] --> End;
-  Promoted -->|no| TooOldDrop[inc dropped_too_old; drop] --> End;
-  TooOld -->|no| Dup;
-  Dup -->|yes| DupDrop[inc dropped_duplicate; drop] --> End;
-  Dup -->|no| Overfull;
-  Overfull -->|no| End;
-  Overfull -->|yes| Frontier;
-  Frontier -->|yes| End[keep seq; try_emit will consume];
-  Frontier -->|no| Evict;
-  Evict -->|new is farthest| EvictNew[inc evicted; drop new] --> End;
-  Evict -->|pending farthest| EvictOld[inc evicted; drop farthest pending] --> End;
+  Push[push(seq)]
+  TooOld{seq < next_expected}
+  WasPromoted{was promoted}
+  IsDup{already in pending}
+  Overfull{pending.size > capacity}
+  Frontier{seq == next_expected}
+  EvictQ{farthest element}
+  End[done]
+
+  Push --> TooOld
+  TooOld --> WasPromoted
+  WasPromoted --> End
+  TooOld --> IsDup
+  IsDup --> End
+  IsDup --> Overfull
+  Overfull --> End
+  Overfull --> Frontier
+  Frontier --> End
+  Overfull --> EvictQ
+  EvictQ --> End
 
 
 ## CI & simulator path
 ```mermaid
 flowchart LR
-  A[Checkout];
-  B[Configure (CMake Debug)];
-  C[Build: lib + tests + CLI];
-  D[ctest];
-  E1[CLI: single --json];
-  E2[CLI: multi --json];
-  F[done];
 
-  A --> B;
-  B --> C;
-  C --> D;
-  D --> E1;
-  D --> E2;
-  E1 --> F;
-  E2 --> F;
+  A[Checkout] --> B[Configure Debug]
+  B --> C[Build: lib + tests + CLI]
+  C --> D[ctest]
+  D --> E1[CLI single --json]
+  D --> E2[CLI multi --json]
+  E1 --> F[done]
+  E2 --> F
+
 
 
 ## Simulator single vs multi
