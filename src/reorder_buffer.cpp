@@ -102,7 +102,7 @@ void ReorderBuffer::maintenance_promote_under_pressure_unsafe() {
 }
 
 bool ReorderBuffer::evict_farthest_future_unsafe(seq_t candidate_new) {
-    // Find the farthest-future element over pending_ ∪ {candidate_new}.
+    // Find the farthest-future element over pending_ combined with {candidate_new}.
     if (pending_.empty()) {
         ++stats_.evicted;
         return false; // drop the candidate_new (defensive)
@@ -153,7 +153,7 @@ std::vector<seq_t> ReorderBuffer::try_emit() {
             continue;
         }
 
-        // 3) Can't emit nor promote – we're stuck until new arrivals show up.
+        // 3) Can't emit nor promote - we're stuck until new arrivals show up.
         break;
     }
 

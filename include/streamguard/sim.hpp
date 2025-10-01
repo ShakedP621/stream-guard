@@ -3,7 +3,6 @@
 #include "streamguard/watchdog.hpp"
 
 #include <cstdint>
-#include <optional>
 #include <random>
 #include <string>
 #include <vector>
@@ -28,7 +27,7 @@ struct SimConfig {
 struct SimResult {
     ReorderStats stats{};
     std::uint64_t generated = 0;     // how many items we attempted to send (post-loss + dups included)
-    std::uint64_t unique_source = 0; // how many unique seq ids we considered (≈ count - dropped by loss)
+    std::uint64_t unique_source = 0; // how many unique seq ids we considered (~ count - dropped by loss)
     std::uint64_t emitted_last = 0;  // last emitted seq (0 if none)
     std::string json;                // small JSON blob for humans/tools
 };

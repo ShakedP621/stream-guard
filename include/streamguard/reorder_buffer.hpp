@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -63,7 +62,7 @@ class ReorderBuffer {
         return cfg_.missing_k;
     }
 
-    // Accept a new sequence number following the rules we’ve built so far.
+    // Accept a new sequence number following the rules we've built so far.
     bool push(seq_t seq);
 
     // Emit any ready runs in order, starting at next_expected().
@@ -77,7 +76,7 @@ class ReorderBuffer {
     // Attempt frontier promotions (Step 6) while under pressure.
     void maintenance_promote_under_pressure_unsafe();
 
-    // Evict the farthest-future element among pending_ ∪ {candidate_new}.
+    // Evict the farthest-future element among pending_ combined with the candidate.
     // Returns true if we should proceed to insert the candidate (i.e., we evicted from pending_),
     // or false if the candidate itself was the farthest and was dropped.
     bool evict_farthest_future_unsafe(seq_t candidate_new);
@@ -89,10 +88,10 @@ class ReorderBuffer {
     std::shared_ptr<Watchdog> watchdog_; // optional
     bool watchdog_gate_open_ = false;    // sticky once opened
 
-    // What we’ve seen but not emitted yet.
+    // What we've seen but not emitted yet.
     std::unordered_set<seq_t> pending_;
 
-    // Which specific seq values we explicitly promoted past (frontier “give-ups”).
+    // Which specific seq values we explicitly promoted past (frontier give-ups).
     // If one of these arrives later, we count it under missing_k_dropped.
     std::unordered_set<seq_t> promoted_missing_;
 };

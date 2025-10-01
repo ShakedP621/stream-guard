@@ -51,3 +51,23 @@ TEST(FrontierMissingK, LateArrivalAfterPromotionCountsAsDropped) {
     EXPECT_EQ(st.emitted,              2u);
     EXPECT_EQ(st.received,             3u);
 }
+
+TEST(FrontierMissingK, PromotionChainsAdvanceMultipleSteps) {
+    ReorderConfig cfg;
+    cfg.start_seq = 1;
+    cfg.missing_k = 2;
+    ReorderBuffer rb(cfg);
+
+    rb.push(4);
+    rb.push(3);
+    rb.push(5);
+
+    const auto out = rb.try_emit();
+    std::vector<seq_t> expected{3, 4, 5};
+    EXPECT_EQ(out, expected);
+
+    const auto st = rb.stats();
+    EXPECT_EQ(st.missing_k_promotions, 2u);
+    EXPECT_EQ(st.received, 3u);
+    EXPECT_EQ(st.missing_k_dropped, 0u);
+}

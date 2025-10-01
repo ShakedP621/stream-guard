@@ -1,102 +1,87 @@
 # StreamGuard
 
-A small, test-driven C++20 library and tools for reordering out-of-order streams in a friendly, deterministic way.
-
-- **Watchdog** gates emission and is dead before the first beat.
-- **Reorder buffer** emits in-order runs, can promote frontier gaps after `missing_k` newer arrivals, and drops duplicates/too-old with clear counters.
-- **Bounded capacity** evicts the farthest-future item under pressure.
-- **Simulator CLI** drives reproducible runs with a tiny RNG model.
+StreamGuard is a small, deterministic C++20 library for reordering out-of-order streams. It ships with a watchdog gate, a bounded reorder buffer, and a simulator CLI for reproducible experiments.
 
 ---
 
-## Build & Test (Windows + Ubuntu)
-
-### Prereqs
-
-- CMake ≥ 3.20  
-- A C++20 compiler (MSVC 2022 / clang / gcc)  
-- No manual GTest setup needed (fetched via `FetchContent`)
+## Build & Test
 
 ### Windows (MSVC)
 
 ```powershell
-# From C:\dev\stream-guard
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Debug
 cmake --build build --config Debug --parallel
-# IMPORTANT: use -C (not --config) with ctest
 ctest --test-dir build -C Debug --output-on-failure -j 4
-Ubuntu (gcc/clang)
-bash
-Copy code
+```
+
+### Ubuntu (gcc/clang)
+
+```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j
-# Single-config generators usually ignore -C, but it's fine to pass it
 ctest --test-dir build -C Debug --output-on-failure -j 4
-Simulator CLI
-We ship a tiny, deterministic simulator to poke the system without writing code.
+```
 
-Quickstart (Windows paths shown; adjust for your OS)
-Run a small scenario:
+GoogleTest v1.14.0 is fetched automatically via `FetchContent`; no manual setup is required.
 
-powershell
-Copy code
-.\build\Debug\streamguard_sim.exe --count 50 --loss-rate 0.1 --dup-rate 0.2 --ooo-rate 0.25 --seed 42
-Switch to JSON:
+---
 
-powershell
-Copy code
-.\build\Debug\streamguard_sim.exe --count 50 --seed 42 --json
-Deterministic multi-thread path (SPSC queue):
+## Simulator CLI
 
-powershell
-Copy code
-.\build\Debug\streamguard_sim.exe --count 50 --seed 42 --threads multi
-Flags
-lua
-Copy code
---count <N>                 unique ids (1..N)
---loss-rate <0..1>         drop probability
---dup-rate <0..1>          duplicate probability
---ooo-rate <0..1>          out-of-order probability
---seed <int>               reproducibility
---capacity <N>             reorder buffer capacity
---missing-k <K>            promote a gap after K newer arrivals
---hb-timeout-ms <ms>       heartbeat timeout (sim beats at t=0)
---threads single|multi     run mode
---verbose                  human output
---json                     JSON output
-Counters (quick guide)
-received / emitted – traffic in/out.
+The CLI exercises the reorder buffer with a deterministic RNG. A couple of quick runs:
 
-dropped_duplicate – same sequence pushed twice before emit.
+```powershell
+# Human-readable summary
+./build/Debug/streamguard_sim.exe --count 50 --seed 42 --verbose
 
-dropped_too_old – sequence < frontier (unless it was a promoted gap).
+# JSON output (single-threaded)
+./build/Debug/streamguard_sim.exe --count 50 --seed 42 --json
 
-missing_k_promotions – frontier advanced after K newer arrivals.
+# Deterministic multi-threaded mode
+./build/Debug/streamguard_sim.exe --count 50 --seed 42 --threads multi --json
+```
 
-missing_k_dropped – a previously promoted sequence later arrived.
+### Flags
 
-evicted – bounded capacity kicked something out (farthest-future).
+```
+--count <N>             how many unique ids to generate (1..N)
+--loss-rate <0..1>      probability that a generated id is dropped before push
+--dup-rate <0..1>       duplicate probability (duplicates reuse the same sequence id)
+--ooo-rate <0..1>       simple adjacent swap probability for out-of-order arrival
+--seed <int>            RNG seed (deterministic)
+--capacity <N>          reorder-buffer capacity
+--missing-k <K>         promote a frontier gap after K newer arrivals are pending
+--hb-timeout-ms <ms>    watchdog timeout (sim beats at t=0)
+--threads single|multi  choose deterministic single-thread or SPSC multi-thread
+--verbose               print additional human-readable details
+--json                  emit a JSON summary
+--help                  print the option list
+```
 
-Design edges we care about
-Duplicates are by sequence id only.
+### Counters at a Glance
 
-Watchdog gates emission and is dead before the first beat (the sim opens it at t=0).
+- `received` / `emitted` - total pushes observed and in-order items emitted.
+- `dropped_duplicate` - same sequence enqueued more than once before emit.
+- `dropped_too_old` - arrivals older than the current frontier that were never promoted.
+- `missing_k_promotions` - how many times the frontier advanced because >=K newer items were waiting.
+- `missing_k_dropped` - promoted sequences that later arrived (counted as late drops).
+- `evicted` - items evicted under capacity pressure (either the candidate or an existing far-future entry).
 
-Promotions are one step at a time and can chain when there are plenty of newer items.
+---
 
-Under capacity pressure, try promotions; otherwise evict farthest-future.
+## Continuous Integration
 
-CI
-We build and test on Windows and Ubuntu, and also run a tiny simulator smoke to catch wiring/link issues:
+The GitHub Actions workflow builds and tests on both Windows and Ubuntu. Each job performs:
 
-configure → build (Debug) → ctest
+1. CMake configure (Debug)
+2. Parallel build of all targets
+3. `ctest` with failure output enabled
+4. Simulator smoke runs (JSON output on both OSes, including multi-thread coverage)
 
-streamguard_sim --count 8 --seed 42 --json (first line only)
+---
 
-Troubleshooting
-CTest says Unknown argument: --config: use -C Debug (short flag), not --config.
+## Determinism Notes
 
-CI can’t find the CLI: ensure the CLI is built before the smoke step and paths match (./build/streamguard_sim on Ubuntu, .\build\Debug\streamguard_sim.exe on Windows).
-
-CTest doesn’t see new tests: re-configure CMake (or delete build/ and regenerate).
+- The watchdog uses an injectable clock for unit tests; the simulator beats at t=0 and never sleeps.
+- All randomness is derived from `std::mt19937` with an explicit seed (default 42).
+- The multi-thread simulator path relies on a single-producer/single-consumer queue with condition variables to ensure deterministic ordering.

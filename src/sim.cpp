@@ -159,7 +159,7 @@ SimResult run_sim(const SimConfig& cfg) {
 
 std::string summarize_human(const SimConfig& c, const SimResult& r) {
     std::ostringstream os;
-    os << "StreamGuard sim — seed " << c.seed << " | mode " << (c.mode == ThreadMode::Single ? "single" : "multi")
+    os << "StreamGuard sim - seed " << c.seed << " | mode " << (c.mode == ThreadMode::Single ? "single" : "multi")
        << " | count " << c.count << " | cap " << c.capacity << " | K " << c.missing_k << " | loss " << c.loss_rate
        << " | dup " << c.dup_rate << " | ooo " << c.ooo_rate << "\n"
        << "generated=" << r.generated << " unique_src=" << r.unique_source << " received=" << r.stats.received

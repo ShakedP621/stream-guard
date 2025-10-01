@@ -46,9 +46,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           ./build/streamguard_sim --count 8 --seed 42 --json | head -n 1
+          ./build/streamguard_sim --count 8 --seed 42 --threads multi --json | head -n 1
 
       - name: Simulator smoke (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           .\build\${{ env.BUILD_TYPE }}\streamguard_sim.exe --count 8 --seed 42 --json | Select-Object -First 1
+          .\build\${{ env.BUILD_TYPE }}\streamguard_sim.exe --count 8 --seed 42 --threads multi --json | Select-Object -First 1

@@ -1,24 +1,21 @@
 cmake_minimum_required(VERSION 3.20)
 project(StreamGuard VERSION 0.1.0 LANGUAGES CXX)
 
-include(CMakePackageConfigHelpers)
 option(STREAMGUARD_BUILD_SHARED "Build streamguard_lib as a shared library" OFF)
 
-# C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Warnings
 if(MSVC)
     add_compile_options(/W4 /permissive-)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+include(CTest)
 enable_testing()
 
-# GoogleTest via FetchContent
 include(FetchContent)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
@@ -28,7 +25,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
-# Generated config header
 set(STREAMGUARD_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${STREAMGUARD_GENERATED_DIR}/streamguard")
 configure_file(
@@ -41,6 +37,8 @@ set(STREAMGUARD_SOURCES
     src/version.cpp
     src/watchdog.cpp
     src/reorder_buffer.cpp
+    src/sim.cpp
+    src/sim_cli.cpp
 )
 
 if(STREAMGUARD_BUILD_SHARED)
@@ -49,63 +47,59 @@ else()
     add_library(streamguard_lib STATIC ${STREAMGUARD_SOURCES})
 endif()
 
-target_compile_features(streamguard_lib PRIVATE cxx_std_20)
+target_compile_features(streamguard_lib PUBLIC cxx_std_20)
 target_compile_definitions(streamguard_lib
     PRIVATE STREAMGUARD_BUILDING_LIB=1
     PUBLIC STREAMGUARD_BUILD_SHARED=$<BOOL:${STREAMGUARD_BUILD_SHARED}>
 )
 target_include_directories(streamguard_lib
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${STREAMGUARD_GENERATED_DIR}
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${STREAMGUARD_GENERATED_DIR}>
         $<INSTALL_INTERFACE:include>
 )
-target_sources(streamguard_lib PRIVATE src/sim.cpp)
-target_include_directories(streamguard_lib PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-)
 
-# --- CLI app ---
 add_executable(streamguard_sim apps/streamguard_sim.cpp)
 target_link_libraries(streamguard_sim PRIVATE streamguard_lib)
+target_compile_features(streamguard_sim PRIVATE cxx_std_20)
 
-# ---------------------------
-# Tests target (clean rewrite)
-# ---------------------------
+if(BUILD_TESTING)
     add_executable(streamguard_tests
-    tests/test_smoke.cpp
-    tests/test_version.cpp
-    tests/test_watchdog.cpp
-    tests/test_reorder_buffer_skeleton.cpp
-    tests/test_reorder_emit_nogaps.cpp
-    tests/test_watchdog_gating.cpp
-    tests/test_frontier_missing_k.cpp
-    tests/test_duplicates_and_too_old.cpp
-    tests/test_capacity_bounded.cpp
-    tests/test_simulator.cpp
-    tests/test_threads.cpp
-    tests/test_simulator_json.cpp
-)
-  
+        tests/test_smoke.cpp
+        tests/test_version.cpp
+        tests/test_watchdog.cpp
+        tests/test_reorder_buffer_skeleton.cpp
+        tests/test_reorder_emit_nogaps.cpp
+        tests/test_watchdog_gating.cpp
+        tests/test_frontier_missing_k.cpp
+        tests/test_duplicates_and_too_old.cpp
+        tests/test_capacity_bounded.cpp
+        tests/test_simulator.cpp
+        tests/test_threads.cpp
+        tests/test_simulator_json.cpp
+        tests/test_sim_cli.cpp
+    )
+    target_link_libraries(streamguard_tests PRIVATE streamguard_lib GTest::gtest_main)
+    target_compile_features(streamguard_tests PRIVATE cxx_std_20)
 
-target_link_libraries(streamguard_tests PRIVATE streamguard_lib GTest::gtest_main)
-target_compile_features(streamguard_tests PRIVATE cxx_std_20)
+    include(GoogleTest)
+    gtest_discover_tests(streamguard_tests DISCOVERY_TIMEOUT 30)
+endif()
 
-include(GoogleTest)
-gtest_discover_tests(streamguard_tests DISCOVERY_TIMEOUT 30)
-
-# ---------------------------
-# Packaging / install (clean)
-# ---------------------------
+include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+    cmake/StreamGuardConfig.cmake.in
+    "${CMAKE_CURRENT_BINARY_DIR}/StreamGuardConfig.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/StreamGuard"
+)
+
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/StreamGuardConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
 )
-
-include(GNUInstallDirs)
 
 install(
     FILES "${STREAMGUARD_GENERATED_DIR}/streamguard/config.hpp"
@@ -120,4 +114,21 @@ install(
     EXPORT StreamGuardTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(
+    TARGETS streamguard_sim
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(
+    EXPORT StreamGuardTargets
+    NAMESPACE StreamGuard::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/StreamGuard
+)
+install(
+    FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/StreamGuardConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/StreamGuardConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/StreamGuard
 )
