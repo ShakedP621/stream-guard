@@ -2,7 +2,7 @@ StreamGuard
 
 StreamGuard is a small, deterministic C++20 library for reordering out-of-order streams. It ships with a watchdog gate, a bounded reorder buffer, and a simulator CLI for reproducible experiments.
 
-### Build
+Build
 Windows (MSVC)
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Debug
 cmake --build build --config Debug --parallel
@@ -73,7 +73,7 @@ Useful flags (summary)
 
 Example JSON summary keys include: received, emitted, dropped_duplicate, dropped_too_old, missing_k_promotions, missing_k_dropped, evicted.
 
-### Run the tests
+Run the tests
 Windows (MSVC)
 # Build first (see above), then:
 ctest --test-dir build -C Debug --output-on-failure -j 4
@@ -92,7 +92,7 @@ Design diagrams
 
 These render on GitHub via Mermaid — no extra tools needed.
 
-### Architecture
+Architecture
 flowchart LR
   A[Producer] -->|seq, payload| B[ReorderBuffer]
   B -->|in-order| C[Consumer]
@@ -101,7 +101,7 @@ flowchart LR
   E -- No -->|pause emit| B
   E -- Yes -->|allow emit| B
 
-### Emit & promotion flow
+Emit & promotion flow
 flowchart TD
   Start([try_emit])
   GateWD{watchdog set?}
@@ -123,7 +123,7 @@ flowchart TD
   PromoteQ -->|no| StopBatch
   PromoteQ -->|yes| Bump --> Scan
 
-### Capacity
+Capacity
 flowchart TD
   Push[push(seq)]
   TooOld{seq < next_expected}
