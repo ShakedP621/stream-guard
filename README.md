@@ -27,8 +27,79 @@ GoogleTest v1.14.0 is fetched automatically via `FetchContent`; no manual setup 
 ---
 
 ## Simulator CLI
+The CLI exercises the reorder buffer with a deterministic RNG (default seed = 42).
+Below are step-by-step instructions to build and run it on Windows and Ubuntu.
 
-The CLI exercises the reorder buffer with a deterministic RNG. A couple of quick runs:
+### 1) Build the project
+
+**Windows (MSVC):**
+```powershell
+# From repo root
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --config Debug --parallel
+Ubuntu (gcc/clang):
+
+Ubuntu (gcc/clang):
+```bash
+# From repo root
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j
+
+
+2) Run the simulator
+Summary (single thread):
+powershell
+# Windows
+./build/Debug/streamguard_sim.exe --count 50 --seed 42
+
+bash
+# Ubuntu
+./build/streamguard_sim --count 50 --seed 42
+
+JSON summary:
+powershell
+# Windows
+./build/Debug/streamguard_sim.exe --count 50 --seed 42 --json
+
+bash
+# Ubuntu
+./build/streamguard_sim --count 50 --seed 42 --json
+Multi-thread mode (deterministic SPSC queue):
+
+Multi-thread mode (deterministic SPSC):
+powershell
+# Windows
+./build/Debug/streamguard_sim.exe --count 50 --seed 42 --threads multi --json
+bash
+# Ubuntu
+./build/streamguard_sim --count 50 --seed 42 --threads multi --json
+
+
+Common flags
+--count <N>: generate IDs 1..N
+
+--seed <int>: RNG seed (reproducible runs)
+
+--capacity <N>: buffer capacity (bounded)
+
+--missing-k <K>: promote frontier after K newer arrivals
+
+--loss-rate <0..1>: drop some generated IDs
+
+--dup-rate <0..1>: duplicate some IDs (by seq)
+
+--ooo-rate <0..1>: introduce simple out-of-order swaps
+
+--hb-timeout-ms <ms>: watchdog timeout (we beat at t=0)
+
+--threads single|multi: execution mode (both deterministic)
+
+--json: print JSON instead of a human line
+
+--help: show usage
+
+Tip: Runs are deterministic by design. Re-use the same --seed to reproduce results byte-for-byte.
+
 
 
 ## Design 
