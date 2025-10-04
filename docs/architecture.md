@@ -20,7 +20,7 @@ flowchart LR
 
 ## Watchdog lifecycle
 ```mermaid
-stateDiagram-v2
+stateDiagram
   [*] --> Dead: start
   Dead --> Alive: beat()/pet() within timeout\n(alive()==true)
   Alive --> Dead: no beat for > timeout
@@ -58,7 +58,7 @@ flowchart TD
 
 ## Capacity (bounded)
 ```mermaid
-fflowchart TD
+flowchart TD
 
   Push[push(seq)]
   TooOld{seq < next_expected}
