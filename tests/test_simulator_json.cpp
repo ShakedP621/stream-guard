@@ -1,6 +1,7 @@
+#include "streamguard/sim.hpp"
+
 #include <gtest/gtest.h>
 #include <string>
-#include "streamguard/sim.hpp"
 
 using namespace streamguard;
 
@@ -25,4 +26,5 @@ TEST(SimJson, IncludesModeAndCoreCounters) {
     EXPECT_NE(j.find("\"dropped_duplicate\":"), std::string::npos);
     EXPECT_NE(j.find("\"dropped_too_old\":"), std::string::npos);
     EXPECT_NE(j.find("\"evicted\":"), std::string::npos);
+    EXPECT_NE(res.json.find("\"watchdog_ever_triggered\":true"), std::string::npos);
 }

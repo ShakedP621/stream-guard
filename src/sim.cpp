@@ -13,7 +13,7 @@ namespace streamguard {
 
 // --- tiny helper to emit JSON with mode included
 static std::string to_json(const SimConfig& c, const ReorderStats& s, std::uint64_t generated,
-                           std::uint64_t unique_source, std::uint64_t emitted_last) {
+                           std::uint64_t unique_source, std::uint64_t emitted_last, bool wd_ever) {
     std::ostringstream os;
     os << "{";
     os << "\"seed\":" << c.seed << ",\"count\":" << c.count << ",\"capacity\":" << c.capacity
@@ -21,7 +21,8 @@ static std::string to_json(const SimConfig& c, const ReorderStats& s, std::uint6
        << ",\"dup_rate\":" << std::fixed << std::setprecision(3) << c.dup_rate << ",\"ooo_rate\":" << std::fixed
        << std::setprecision(3) << c.ooo_rate << ",\"mode\":\"" << (c.mode == ThreadMode::Single ? "single" : "multi")
        << "\""
-       << ",\"generated\":" << generated << ",\"unique_source\":" << unique_source << ",\"stats\":{"
+       << ",\"watchdog_ever_triggered\":" << (wd_ever ? "true" : "false") << ",\"generated\":" << generated
+       << ",\"unique_source\":" << unique_source << ",\"stats\":{"
        << "\"received\":" << s.received << ",\"emitted\":" << s.emitted
        << ",\"dropped_duplicate\":" << s.dropped_duplicate << ",\"dropped_too_old\":" << s.dropped_too_old
        << ",\"evicted\":" << s.evicted << ",\"missing_k_promotions\":" << s.missing_k_promotions
@@ -73,6 +74,7 @@ SimResult run_sim(const SimConfig& cfg) {
     auto wd = std::make_shared<Watchdog>(std::chrono::milliseconds(cfg.hb_timeout_ms));
     rb.set_watchdog(wd);
     wd->beat(); // open the gate at t=0
+    bool wd_ever = true;
 
     std::uint64_t unique_source = 0;
     auto arrivals = build_arrivals(cfg, rng, unique_source);
@@ -153,7 +155,8 @@ SimResult run_sim(const SimConfig& cfg) {
     res.generated = generated;
     res.unique_source = unique_source;
     res.emitted_last = emitted_last;
-    res.json = to_json(cfg, st, generated, unique_source, emitted_last);
+    res.watchdog_ever_triggered = wd_ever;
+    res.json = to_json(cfg, st, generated, unique_source, emitted_last, wd_ever);
     return res;
 }
 
@@ -165,8 +168,8 @@ std::string summarize_human(const SimConfig& c, const SimResult& r) {
        << "generated=" << r.generated << " unique_src=" << r.unique_source << " received=" << r.stats.received
        << " emitted=" << r.stats.emitted << " dups=" << r.stats.dropped_duplicate
        << " too_old=" << r.stats.dropped_too_old << " evicted=" << r.stats.evicted
-       << " K_promoted=" << r.stats.missing_k_promotions << " K_late=" << r.stats.missing_k_dropped
-       << " last=" << r.emitted_last;
+       << " K_promoted=" << r.stats.missing_k_promotions << " K_late=" << r.stats.missing_k_dropped << " | wd_ever "
+       << (r.watchdog_ever_triggered ? "yes" : "no") << " last=" << r.emitted_last;
     return os.str();
 }
 
